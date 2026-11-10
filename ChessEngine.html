@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Шахматы</title>
+  <style>
+    :root {
+      box-sizing: border-box;
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      --bg: #e9e4da;
+      --fg: #23201b;
+      --lt: #e8d8b4;
+      --dk: #8f6a47;
+      --frame: #3a2a1c;
+      --btn: #fffdf8;
+      --bd: #b9ad98
+    }
+
+    @media (prefers-color-scheme:dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #1c1a17;
+        --fg: #ece4d4;
+        --lt: #c2ae86;
+        --dk: #6e4f33;
+        --frame: #0f0d0b;
+        --btn: #2a2622;
+        --bd: #4a4339
+      }
+    }
+
+    :root[data-theme="dark"] {
+      --bg: #1c1a17;
+      --fg: #ece4d4;
+      --lt: #c2ae86;
+      --dk: #6e4f33;
+      --frame: #0f0d0b;
+      --btn: #2a2622;
+      --bd: #4a4339
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    html,
+    body {
+      margin: 0
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: Georgia, "Times New Roman", serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      padding: 18px 0 28px
+    }
+
+    #st {
+      font-size: 20px;
+      min-height: 28px;
+      text-align: center;
+      padding: 0 12px
+    }
+
+    #wrap {
+      --s: min(92vw, 560px);
+      position: relative;
+      width: var(--s);
+      padding: 8px;
+      background: var(--frame);
+      border-radius: 6px
+    }
+
+    #b {
+      touch-action: none;
+      display: grid;
+      grid-template-columns: repeat(8, minmax(0, 1fr));
+      grid-template-rows: repeat(8, minmax(0, 1fr));
+      width: 100%;
+      aspect-ratio: 1
+    }
+
+    .sq {
+      min-width: 0;
+      min-height: 0;
+      aspect-ratio: 1;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      overflow: hidden
+    }
+
+    .l {
+      background: var(--lt)
+    }
+
+    .d {
+      background: var(--dk)
+    }
+
+    .sq.last {
+      box-shadow: inset 0 0 0 100px rgba(246, 224, 94, .38)
+    }
+
+    .sq.sel {
+      box-shadow: inset 0 0 0 100px rgba(246, 224, 94, .7)
+    }
+
+    .sq.chk {
+      box-shadow: inset 0 0 0 100px rgba(220, 60, 50, .6)
+    }
+
+    .sq.pre {
+      box-shadow: inset 0 0 0 100px rgba(40, 110, 220, .5)
+    }
+
+    .sq.hint::after {
+      content: "";
+      width: 28%;
+      height: 28%;
+      border-radius: 50%;
+      background: rgba(30, 100, 50, .55);
+      position: absolute
+    }
+
+    .sq.cap {
+      box-shadow: inset 0 0 0 calc(var(--s)/8*.09) rgba(30, 100, 50, .6)
+    }
+
+    .p {
+      font-size: calc(var(--s)/8*.8);
+      line-height: 1;
+      user-select: none;
+      position: relative;
+      z-index: 1
+    }
+
+    .p.w {
+      color: #fff;
+      -webkit-text-stroke: 1.2px #222;
+      paint-order: stroke fill
+    }
+
+    .p.b {
+      color: #17130f;
+      -webkit-text-stroke: .6px #000
+    }
+
+    .ghost {
+      position: fixed;
+      pointer-events: none;
+      z-index: 30;
+      transform: translate(-50%, -50%);
+      filter: drop-shadow(0 4px 6px rgba(0, 0, 0, .45))
+    }
+
+    .co {
+      position: absolute;
+      font: 600 11px sans-serif;
+      opacity: .7;
+      pointer-events: none
+    }
+
+    .co.r {
+      top: 2px;
+      left: 3px
+    }
+
+    .co.f {
+      bottom: 1px;
+      right: 3px
+    }
+
+    .l .co {
+      color: var(--dk)
+    }
+
+    .d .co {
+      color: var(--lt)
+    }
+
+    #promo {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, .55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border-radius: 6px;
+      z-index: 5
+    }
+
+    #promo button {
+      font-size: calc(var(--s)/8*.7);
+      width: calc(var(--s)/6);
+      aspect-ratio: 1;
+      border: 0;
+      border-radius: 6px;
+      background: var(--lt);
+      cursor: pointer;
+      color: #17130f
+    }
+
+    .bar {
+      display: flex;
+      gap: 8px 14px;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      padding: 0 12px
+    }
+
+    .bar label {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      font-size: 16px
+    }
+
+    .bar button,
+    .bar select {
+      font: inherit;
+      font-size: 16px;
+      padding: 8px 14px;
+      border: 1px solid var(--bd);
+      border-radius: 6px;
+      background: var(--btn);
+      color: var(--fg);
+      cursor: pointer
+    }
+
+    .bar button:focus-visible,
+    .bar select:focus-visible {
+      outline: 3px solid #2f7dd1;
+      outline-offset: 2px
+    }
+
+    #mv {
+      width: min(92vw, 560px);
+      max-height: 112px;
+      overflow-y: auto;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 8px;
+      align-content: flex-start;
+      padding: 10px 12px;
+      border: 1px solid var(--bd);
+      border-radius: 6px;
+      background: var(--btn);
+      font-size: 16px;
+      min-height: 48px
+    }
+
+    #mv b {
+      font-weight: 400;
+      opacity: .6;
+      margin-left: 4px
+    }
+
+    #mv span {
+      font-weight: 600
+    }
+
+    #pg {
+      width: min(92vw, 560px);
+      height: 150px;
+      font: 13px/1.4 monospace;
+      padding: 8px;
+      border: 1px solid var(--bd);
+      border-radius: 6px;
+      background: var(--btn);
+      color: var(--fg)
+    }
+
+    .clk {
+      width: min(92vw, 560px);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 14px;
+      border: 1px solid var(--bd);
+      border-radius: 6px;
+      background: var(--btn);
+      font-size: 16px
+    }
+
+    .clk b {
+      font: 700 28px/1.2 ui-monospace, Menlo, Consolas, monospace;
+      font-variant-numeric: tabular-nums
+    }
+
+    .clk.act {
+      border-color: #2f7dd1;
+      box-shadow: 0 0 0 2px #2f7dd1
+    }
+
+    .clk.low b {
+      color: #d23a2f
+    }
+
+    .clk[hidden] {
+      display: none
+    }
+
+    .bar button:disabled {
+      opacity: .45;
+      cursor: default
+    }
+  </style>
+</head>
+
+<body>
+  <div id="st"></div>
+  <div class="clk" id="ct" hidden><span></span><b></b></div>
+  <div id="wrap">
+    <div id="b"></div>
+    <div id="promo"></div>
+  </div>
+  <div class="clk" id="cb" hidden><span></span><b></b></div>
+  <div id="mv" aria-label="Запись партии"></div>
+  <div class="bar"><button id="cp">Копировать PGN</button><button id="dl" hidden>Скачать PGN</button></div>
+  <textarea id="pg" readonly hidden aria-label="PGN"></textarea>
+  <div class="bar">
+    <label>Играть за <select id="sd">
+        <option value="w">белых</option>
+        <option value="b">чёрных</option>
+        <option value="2">вдвоём</option>
+      </select></label>
+    <label>Уровень <select id="lv">
+        <option value="0">Новичок</option>
+        <option value="1" selected>Любитель</option>
+        <option value="2">Сильный</option>
+        <option value="3">Мастер</option>
+      </select></label>
+    <label>Часы <select id="tc">
+        <option value="0">Без часов</option>
+        <option value="60,0">Пуля 1+0</option>
+        <option value="120,1">Пуля 2+1</option>
+        <option value="180,0">Блиц 3+0</option>
+        <option value="180,2">Блиц 3+2</option>
+        <option value="300,0">Блиц 5+0</option>
+      </select></label>
+  </div>
+  <div class="bar">
+    <button id="nw">Новая игра</button><button id="un">Отменить ход</button><button id="fl">Перевернуть доску</button>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+  <script>
+    'use strict';
+    const $ = id => document.getElementById(id);
+    const GLYPH = { k: '♚\uFE0E', q: '♛\uFE0E', r: '♜\uFE0E', b: '♝\uFE0E', n: '♞\uFE0E', p: '♟\uFE0E' };
+    const LEVEL_NAMES = ['Novice', 'Amateur', 'Strong', 'Master'];
+
+    /** Битбордовый движок: доска как пары 32-битных чисел; поиск с итеративным углублением. */
+    class BitboardEngine {
+      constructor() {
+        const clz = Math.clz32, now = () => performance.now(), VAL = [100, 320, 330, 500, 900, 0];
+        const NL = new Int32Array(64), NH = new Int32Array(64), KL = new Int32Array(64), KH = new Int32Array(64);
+        const RL = [], RH = [], DR = [1, 0, 1, 1, -1, 0, -1, -1], DF = [0, 1, 1, -1, 0, -1, -1, 1], DB = [2, 3, 6, 7], DK = [0, 1, 4, 5];
+        for (let d = 0; d < 8; d++) { RL.push(new Int32Array(64)); RH.push(new Int32Array(64)) }
+        const setb = (l, h, s, t) => { if (t < 32) l[s] |= 1 << t; else h[s] |= 1 << (t - 32) };
+        for (let s = 0; s < 64; s++) {
+          const r = s >> 3, f = s & 7, ok = (y, x) => y >= 0 && y < 8 && x >= 0 && x < 8;
+          for (const [a, b] of [[1, 2], [2, 1], [-1, 2], [-2, 1], [1, -2], [2, -1], [-1, -2], [-2, -1]]) if (ok(r + a, f + b)) setb(NL, NH, s, (r + a) * 8 + f + b);
+          for (let a = -1; a < 2; a++)for (let b = -1; b < 2; b++)if ((a || b) && ok(r + a, f + b)) setb(KL, KH, s, (r + a) * 8 + f + b);
+          for (let d = 0; d < 8; d++) { let y = r + DR[d], x = f + DF[d]; while (ok(y, x)) { setb(RL[d], RH[d], s, y * 8 + x); y += DR[d]; x += DF[d] } }
+        }
+        const PV = new Int32Array(768), KD = new Int8Array(64);
+        function W(t, s) {
+          const r = s >> 3, f = s & 7, d = 7 - (Math.abs(r - 3.5) + Math.abs(f - 3.5));
+          return Math.round([100 + (r - 1) * 8 + (f > 1 && f < 6 ? d * 1.5 : 0), 320 + d * 6, 330 + d * 3, 500 + (r == 6 ? 10 : 0), 900 + d, -d * 4][t])
+        }
+        for (let s = 0; s < 64; s++) { KD[s] = 7 - (Math.abs((s >> 3) - 3.5) + Math.abs((s & 7) - 3.5)); for (let t = 0; t < 6; t++) { PV[t * 64 + s] = W(t, s); PV[(6 + t) * 64 + s] = -W(t, s ^ 56) } }
+        const RM = new Int8Array(64).fill(15); RM[0] = 13; RM[4] = 12; RM[7] = 14; RM[56] = 7; RM[60] = 3; RM[63] = 11;
+        const bl = new Int32Array(12), bh = new Int32Array(12), mb = new Int8Array(64), CL = [0, 0], CH = [0, 0];
+        let OL = 0, OH = 0, ev = 0, np = 0, side = 0, cast = 0, ep = -1, sp = 0, AL = 0, AH = 0, N = 0, nodes = 0, tEnd = 0, stop = false, cur = 0, PVM = 0, EX = [];
+        const stC = new Int32Array(256), stE = new Int32Array(256), stK = new Int32Array(256);
+        const MV = [], SC = []; for (let i = 0; i < 64; i++) { MV.push(new Int32Array(256)); SC.push(new Int32Array(256)) }
+        const K1 = new Int32Array(64), K2 = new Int32Array(64), hist = new Int32Array(768);
+        function put(p, s) {
+          const c = p >= 6 ? 1 : 0;
+          if (s < 32) { const b = 1 << s; bl[p] |= b; OL ^= b; CL[c] ^= b } else { const b = 1 << (s - 32); bh[p] |= b; OH ^= b; CH[c] ^= b }
+          mb[s] = p; ev += PV[p * 64 + s]; const t = p % 6; if (t && t < 5) np++
+        }
+        function take(p, s) {
+          const c = p >= 6 ? 1 : 0;
+          if (s < 32) { const b = 1 << s; bl[p] ^= b; OL ^= b; CL[c] ^= b } else { const b = 1 << (s - 32); bh[p] ^= b; OH ^= b; CH[c] ^= b }
+          mb[s] = -1; ev -= PV[p * 64 + s]; const t = p % 6; if (t && t < 5) np--
+        }
+        function ray(d, s, ol, oh) {
+          const rl = RL[d][s], rh = RH[d][s], bL = rl & ol, bH = rh & oh;
+          if (!(bL | bH)) { AL |= rl; AH |= rh; return }
+          const b = d < 4 ? (bL ? 31 - clz(bL & -bL) : 63 - clz(bH & -bH)) : (bH ? 63 - clz(bH) : 31 - clz(bL));
+          AL |= rl ^ RL[d][b]; AH |= rh ^ RH[d][b];
+        }
+        const ksq = c => { const l = bl[5 + 6 * c]; if (l) return 31 - clz(l & -l); const h = bh[5 + 6 * c]; return 63 - clz(h & -h) };
+        function att(s, by) {
+          const o = by * 6, f = s & 7;
+          if (by == 0) { if ((f > 0 && mb[s - 9] == 0) || (f < 7 && mb[s - 7] == 0)) return true }
+          else if ((f > 0 && mb[s + 7] == 6) || (f < 7 && mb[s + 9] == 6)) return true;
+          if ((NL[s] & bl[o + 1]) | (NH[s] & bh[o + 1])) return true;
+          if ((KL[s] & bl[o + 5]) | (KH[s] & bh[o + 5])) return true;
+          AL = AH = 0; for (let k = 0; k < 4; k++)ray(DB[k], s, OL, OH);
+          if ((AL & (bl[o + 2] | bl[o + 4])) | (AH & (bh[o + 2] | bh[o + 4]))) return true;
+          AL = AH = 0; for (let k = 0; k < 4; k++)ray(DK[k], s, OL, OH);
+          return ((AL & (bl[o + 3] | bl[o + 4])) | (AH & (bh[o + 3] | bh[o + 4]))) != 0;
+        }
+        const qsc = (ply, p, m0, t) => m0 == K1[ply] ? 9000 : m0 == K2[ply] ? 8000 : hist[p * 64 + t];
+        function ad(ply, f, t, pr, sc) {
+          const M = MV[ply], S = SC[ply];
+          if (pr) { for (let k = 4; k > 0; k--) { M[N] = f | t << 6 | k << 12; S[N++] = 20000 + k } } else { M[N] = f | t << 6; S[N++] = sc }
+        }
+        function tg(ply, f, p, tl, th, caps) {
+          for (let h = 0; h < 2; h++) {
+            let x = h ? th : tl;
+            while (x) {
+              const b = x & -x; x ^= b; const t = h * 32 + 31 - clz(b), v = mb[t];
+              if (v >= 0) ad(ply, f, t, 0, 10000 + VAL[v % 6] * 10 - VAL[p % 6]); else if (!caps) ad(ply, f, t, 0, qsc(ply, p, f | t << 6, t))
+            }
+          }
+        }
+        function pw(ply, s, p, c, caps) {
+          const d = c ? -8 : 8, r = s >> 3, f = s & 7, pr = r + (c ? -1 : 1) == (c ? 0 : 7);
+          for (let k = -1; k < 2; k += 2) {
+            if (k < 0 ? f == 0 : f == 7) continue;
+            const t = s + d + k, v = mb[t];
+            if (v >= 0) { if ((v >= 6 ? 1 : 0) != c) ad(ply, s, t, pr, 10000 + VAL[v % 6] * 10 - 100) } else if (t == ep) ad(ply, s, t, 0, 10050);
+          }
+          const t = s + d;
+          if (mb[t] < 0) {
+            if (pr) ad(ply, s, t, 1, 0);
+            else if (!caps) {
+              ad(ply, s, t, 0, qsc(ply, p, s | t << 6, t));
+              if (r == (c ? 6 : 1) && mb[t + d] < 0) ad(ply, s, t + d, 0, qsc(ply, p, s | (t + d) << 6, t + d))
+            }
+          }
+        }
+        function gen(ply, caps) {
+          N = 0; const c = side, o = c * 6, e = c ^ 1, oL = CL[c], oH = CH[c];
+          for (let t = 0; t < 6; t++) {
+            const p = o + t;
+            for (let h = 0; h < 2; h++) {
+              let x = h ? bh[p] : bl[p];
+              while (x) {
+                const b = x & -x; x ^= b; const s = h * 32 + 31 - clz(b);
+                if (t == 0) pw(ply, s, p, c, caps);
+                else if (t == 1) tg(ply, s, p, NL[s] & ~oL, NH[s] & ~oH, caps);
+                else if (t == 5) {
+                  tg(ply, s, p, KL[s] & ~oL, KH[s] & ~oH, caps);
+                  const bb = c * 56, cs = cast >> (c * 2);
+                  if (!caps && s == 4 + bb && (cs & 3) && !att(s, e)) {
+                    if ((cs & 1) && mb[5 + bb] < 0 && mb[6 + bb] < 0 && !att(5 + bb, e) && !att(6 + bb, e)) ad(ply, s, 6 + bb, 0, 50);
+                    if ((cs & 2) && mb[1 + bb] < 0 && mb[2 + bb] < 0 && mb[3 + bb] < 0 && !att(3 + bb, e) && !att(2 + bb, e)) ad(ply, s, 2 + bb, 0, 50);
+                  }
+                } else {
+                  AL = AH = 0;
+                  if (t != 3) for (let k = 0; k < 4; k++)ray(DB[k], s, OL, OH);
+                  if (t != 2) for (let k = 0; k < 4; k++)ray(DK[k], s, OL, OH);
+                  tg(ply, s, p, AL & ~oL, AH & ~oH, caps);
+                }
+              }
+            }
+          }
+          if (ply == 0 && PVM) for (let i = 0; i < N; i++)if (MV[0][i] == PVM) SC[0][i] = 1e6;
+          return N;
+        }
+        function make(m) {
+          const f = m & 63, t = (m >> 6) & 63, pr = (m >> 12) & 7, p = mb[f], c = side; let cap = mb[t];
+          stC[sp] = cast; stE[sp] = ep;
+          if (p % 6 == 0 && t == ep && cap < 0 && (f & 7) != (t & 7)) { const q = t + (c ? 8 : -8); cap = mb[q]; take(cap, q) } else if (cap >= 0) take(cap, t);
+          stK[sp] = cap; take(p, f); put(pr ? pr + c * 6 : p, t);
+          if (p % 6 == 5 && Math.abs(t - f) == 2) { const rf = t > f ? f + 3 : f - 4, rt = t > f ? f + 1 : f - 1, r = mb[rf]; take(r, rf); put(r, rt) }
+          ep = (p % 6 == 0 && Math.abs(t - f) == 16) ? (f + t) >> 1 : -1;
+          cast &= RM[f] & RM[t]; side ^= 1; sp++;
+          if (att(ksq(c), side)) { unmake(m); return false }
+          return true;
+        }
+        function unmake(m) {
+          sp--; side ^= 1; const c = side, f = m & 63, t = (m >> 6) & 63, pr = (m >> 12) & 7, cap = stK[sp];
+          let p = mb[t]; take(p, t); if (pr) p = c * 6; put(p, f);
+          if (cap >= 0) { if (p % 6 == 0 && t == stE[sp] && (f & 7) != (t & 7)) put(cap, t + (c ? 8 : -8)); else put(cap, t) }
+          if (p % 6 == 5 && Math.abs(t - f) == 2) { const rf = t > f ? f + 3 : f - 4, rt = t > f ? f + 1 : f - 1, r = mb[rt]; take(r, rt); put(r, rf) }
+          cast = stC[sp]; ep = stE[sp];
+        }
+        function evl() { let s = ev; if (np <= 6) for (let c = 0; c < 2; c++)s += (c ? -1 : 1) * KD[ksq(c)] * 8; return (side ? -s : s) + 10 }
+        function pick(ply, i, n) {
+          const M = MV[ply], S = SC[ply]; let b = i; for (let j = i + 1; j < n; j++)if (S[j] > S[b]) b = j;
+          const m = M[b], sc = S[b]; M[b] = M[i]; S[b] = S[i]; M[i] = m; S[i] = sc; return m
+        }
+        function qs(a, b, ply) {
+          if ((++nodes & 2047) == 0 && now() > tEnd) stop = true;
+          if (stop) return 0;
+          const st = evl(); if (st >= b) return b; if (st > a) a = st; if (ply >= 62) return a;
+          const n = gen(ply, true);
+          for (let i = 0; i < n; i++) {
+            const m = pick(ply, i, n); if (!make(m)) continue; const s = -qs(-b, -a, ply + 1); unmake(m);
+            if (stop) return 0; if (s >= b) return b; if (s > a) a = s
+          }
+          return a;
+        }
+        function ab(d, a, b, ply, nu) {
+          if ((++nodes & 2047) == 0 && now() > tEnd) stop = true;
+          if (stop) return 0;
+          const chk = att(ksq(side), side ^ 1);
+          if (chk) d++;
+          if (d <= 0 || ply >= 62) return qs(a, b, ply);
+          if (nu && !chk && d >= 3 && np > 3 && b < 29000) {
+            const e = ep; side ^= 1; ep = -1; const s = -ab(d - 3, -b, -b + 1, ply + 1, false); side ^= 1; ep = e;
+            if (stop) return 0; if (s >= b) return s;
+          }
+          const n = gen(ply, false); let best = -32000, legal = 0;
+          for (let i = 0; i < n; i++) {
+            const m = pick(ply, i, n);
+            if (ply == 0 && EX.includes(m)) continue;
+            const cap = mb[(m >> 6) & 63] >= 0, p = mb[m & 63];
+            if (!make(m)) continue;
+            legal++; let s;
+            if (legal == 1) s = -ab(d - 1, -b, -a, ply + 1, true);
+            else {
+              const r = (d >= 3 && legal > 4 && !cap && !chk && !((m >> 12) & 7)) ? 1 : 0;
+              s = -ab(d - 1 - r, -a - 1, -a, ply + 1, true);
+              if (s > a && (r || s < b)) s = -ab(d - 1, -b, -a, ply + 1, true);
+            }
+            unmake(m);
+            if (stop) return 0;
+            if (s > best) { best = s; if (ply == 0) cur = m; if (s > a) a = s }
+            if (a >= b) { if (!cap) { K2[ply] = K1[ply]; K1[ply] = m; const h = p * 64 + ((m >> 6) & 63); hist[h] = Math.min(hist[h] + d * d, 7500) } break }
+          }
+          if (!legal) return chk ? -30000 + ply : 0;
+          return best;
+        }
+        function load(fen) {
+          bl.fill(0); bh.fill(0); mb.fill(-1); OL = OH = 0; CL[0] = CL[1] = CH[0] = CH[1] = 0; ev = np = sp = 0;
+          const [bd, sd, ca, e] = fen.split(' '); let r = 7, f = 0;
+          for (const ch of bd) { if (ch == '/') { r--; f = 0 } else if (ch >= '1' && ch <= '8') f += +ch; else { put('PNBRQKpnbrqk'.indexOf(ch), r * 8 + f); f++ } }
+          side = sd == 'b' ? 1 : 0; cast = (ca.includes('K') ? 1 : 0) | (ca.includes('Q') ? 2 : 0) | (ca.includes('k') ? 4 : 0) | (ca.includes('q') ? 8 : 0);
+          ep = e && e != '-' ? (e.charCodeAt(1) - 49) * 8 + e.charCodeAt(0) - 97 : -1;
+        }
+        const sqn = s => 'abcdefgh'[s & 7] + ((s >> 3) + 1);
+        function search(fen, ms, ex) {
+          load(fen); K1.fill(0); K2.fill(0); hist.fill(0); nodes = 0; stop = false; tEnd = now() + ms; EX = ex || [];
+          let best = 0, sc = 0, dd = 0;
+          for (let d = 1; d < 64; d++) {
+            PVM = best; cur = best; const s = ab(d, -32000, 32000, 0, false);
+            if (cur) best = cur; if (!stop) { sc = s; dd = d }
+            if (stop || Math.abs(s) > 29000) break;
+          }
+          return best ? { m: best, score: sc, depth: dd, nodes, mv: { from: sqn(best & 63), to: sqn((best >> 6) & 63), promotion: ['', 'n', 'b', 'r', 'q'][(best >> 12) & 7] || undefined } } : null;
+        }
+        function pf(ply, d) { if (!d) return 1; const n = gen(ply, false); let c = 0; for (let i = 0; i < n; i++) { const m = MV[ply][i]; if (make(m)) { c += pf(ply + 1, d - 1); unmake(m) } } return c }
+        this.search = search; this.perft = (fen, d) => { load(fen); PVM = 0; return pf(0, d) };
+      }
+    }
+
+    /** Запасной движок на chess.js: уровни «Новичок» и «Любитель» (со случайностью) и резерв для сильных. */
+    class MinimaxEngine {
+      static V = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 0 };
+      static LEVELS = [{ d: 1, n: 90 }, { d: 2, n: 20 }, { d: 3, n: 0 }, { d: 3, n: 0 }];
+      static mv(m) { return { from: m.from, to: m.to, promotion: m.promotion } }
+      static score(m) { const V = MinimaxEngine.V; return (m.captured ? 10 * V[m.captured] - V[m.piece] : 0) + (m.promotion ? 800 : 0) }
+      static order(ms) { return ms.sort((x, y) => MinimaxEngine.score(y) - MinimaxEngine.score(x)) }
+      choose(game, level) {
+        this.g = game; const P = MinimaxEngine.LEVELS[level]; let best = null, bs = -Infinity;
+        for (const m of MinimaxEngine.order(game.moves({ verbose: true }))) {
+          game.move(MinimaxEngine.mv(m)); const s = -this.search(P.d - 1, -1e9, 1e9) + Math.random() * P.n; game.undo();
+          if (s > bs) { bs = s; best = m }
+        }
+        return MinimaxEngine.mv(best);
+      }
+      evaluate() {
+        const V = MinimaxEngine.V, b = this.g.board(); let s = 0, cnt = 0;
+        const kc = { w: 0, b: 0 }, bp = { w: 0, b: 0 }, pf = { w: Array(8).fill(0), b: Array(8).fill(0) }, pr = { w: [], b: [] }, rk = { w: [], b: [] };
+        for (let r = 0; r < 8; r++)for (let c = 0; c < 8; c++) {
+          const p = b[r][c]; if (!p) continue;
+          const d = Math.abs(r - 3.5) + Math.abs(c - 3.5), t = p.type, o = p.color; let v = V[t];
+          if (t == 'n') v += (7 - d) * 6;
+          else if (t == 'b') { v += (7 - d) * 3; bp[o]++ }
+          else if (t == 'p') { v += (o == 'w' ? 6 - r : r - 1) * 6 + (c > 1 && c < 6 ? (7 - d) * 1.5 : 0); pf[o][c]++; pr[o].push([r, c]) }
+          else if (t == 'r') rk[o].push(c);
+          else if (t == 'k') kc[o] = 7 - d;
+          if (t != 'p' && t != 'k') cnt++;
+          s += o == 'w' ? v : -v;
+        }
+        for (const o of ['w', 'b']) {
+          const e = o == 'w' ? 'b' : 'w'; let x = 0;
+          if (bp[o] > 1) x += 30;
+          for (let c = 0; c < 8; c++)if (pf[o][c] > 1) x -= 15 * (pf[o][c] - 1);
+          for (const [r, c] of pr[o])
+            if (!pr[e].some(([er, ec]) => Math.abs(ec - c) <= 1 && (o == 'w' ? er < r : er > r))) { const k = o == 'w' ? 6 - r : r - 1; x += k * k * 4 }
+          for (const c of rk[o]) if (!pf[o][c]) x += pf[e][c] ? 12 : 22;
+          s += (o == 'w' ? 1 : -1) * x;
+        }
+        return s + (kc.w - kc.b) * 4 * (cnt <= 6 ? 1 : -1);
+      }
+      quiesce(a, b, k) {
+        const st = this.evaluate() * (this.g.turn() == 'w' ? 1 : -1);
+        if (st >= b) return b; if (st > a) a = st; if (k >= 4) return a;
+        for (const m of MinimaxEngine.order(this.g.moves({ verbose: true }).filter(m => m.captured))) {
+          this.g.move(MinimaxEngine.mv(m)); const s = -this.quiesce(-b, -a, k + 1); this.g.undo();
+          if (s >= b) return b; if (s > a) a = s;
+        }
+        return a;
+      }
+      search(d, a, b) {
+        if (d == 0) return this.quiesce(a, b, 0);
+        const ms = this.g.moves({ verbose: true });
+        if (!ms.length) return this.g.in_check() ? -1e5 - d : 0;
+        let best = -Infinity;
+        for (const m of MinimaxEngine.order(ms)) {
+          this.g.move(MinimaxEngine.mv(m)); const s = -this.search(d - 1, -b, -a); this.g.undo();
+          if (s > best) best = s; if (best > a) a = best; if (a >= b) break;
+        }
+        return best;
+      }
+    }
+
+    /** Запуск битбордового движка в Web Worker; если воркер недоступен, считает в основном потоке. */
+    class EngineClient {
+      constructor() { this.local = new BitboardEngine(); this.rid = 0; this.worker = this.spawn() }
+      spawn() {
+        try {
+          const src = 'const E=new (' + BitboardEngine + ')();onmessage=e=>{const [id,f,ms,ex]=e.data;postMessage({id,r:E.search(f,ms,ex)})}';
+          return new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+        } catch (e) { return null }
+      }
+      reset() { if (this.worker) { this.worker.terminate(); this.worker = this.spawn() } }
+      search(fen, ms, ex, stale) {
+        const w = this.worker;
+        if (!w) return Promise.resolve(this.local.search(fen, ms, ex));
+        const id = ++this.rid;
+        return new Promise(res => {
+          let ok = false, to = 0;
+          const fail = () => { if (ok) return; ok = true; clearTimeout(to); if (this.worker === w) this.worker = null; res(stale() ? null : this.local.search(fen, ms, ex)) };
+          to = setTimeout(fail, ms + 3000);
+          w.onmessage = e => { if (e.data.id != id || ok) return; ok = true; clearTimeout(to); res(e.data.r) };
+          w.onerror = fail;
+          w.postMessage([id, fen, ms, ex]);
+        });
+      }
+    }
+
+    /** Выбор хода компьютера: сильные уровни идут через EngineClient, остальные через MinimaxEngine. */
+    class ComputerPlayer {
+      constructor(client, fallback) { this.client = client; this.fallback = fallback }
+      async chooseMove(game, level, limitMs, stale) {
+        if (level >= 2) { const m = await this.strong(game, level, limitMs, stale); if (m) return m; if (stale()) return null }
+        return this.fallback.choose(game, level);
+      }
+      async strong(game, level, limitMs, stale) {
+        try {
+          const ms = Math.min(level == 3 ? 8000 : 2500, limitMs), key = f => f.split(' ').slice(0, 4).join(' ');
+          const seen = new Set(), tmp = new Chess();
+          seen.add(key(tmp.fen())); game.history().forEach(m => { tmp.move(m); seen.add(key(tmp.fen())) });
+          const ex = []; let r = null;
+          for (let k = 0; k < 3; k++) {
+            const x = await this.client.search(game.fen(), k ? ms / 3 : ms, ex, stale); if (!x || stale()) break;
+            if (!game.moves({ verbose: true }).some(v => v.from == x.mv.from && v.to == x.mv.to && (v.promotion || '') == (x.mv.promotion || ''))) break;
+            r = x; game.move(x.mv); const rep = seen.has(key(game.fen())); game.undo();
+            if (!(rep && x.score > 80)) break; ex.push(x.m);   // избегаем повтора позиции, если выигрываем
+          }
+          return r && r.mv;
+        } catch (e) { return null }
+      }
+    }
+
+    /** Шахматные часы (контроль «время+прибавка»). */
+    class ChessClock {
+      constructor() { this.reset('0') }
+      reset(spec) {
+        const [b, i] = spec.split(',').map(Number);
+        this.on = b > 0; this.ms = { w: b * 1000, b: b * 1000 }; this.inc = (i || 0) * 1000; this.label = this.on ? b + '+' + (i || 0) : '-';
+        this.run = null; this.last = 0; this.flag = null; this.moves = 0;
+      }
+      remaining(c) { return this.ms[c] - (this.run == c && !this.flag ? performance.now() - this.last : 0) }
+      /** Списывает время; true, если флаг упал только что. */
+      tick(game) {
+        if (!this.on || !this.run || this.flag) return false;
+        const n = performance.now(), c = this.run; this.ms[c] -= n - this.last; this.last = n;
+        if (this.ms[c] > 0) return false;
+        this.ms[c] = 0; this.flag = ChessClock.lacksMaterial(game, c == 'w' ? 'b' : 'w') ? 'd' : c; this.run = null; return true;
+      }
+      /** Вызывается после каждого изменения партии. */
+      sync(game) {
+        const n = game.history().length;
+        if (!this.on || this.flag) { this.moves = n; return }
+        if (n > this.moves) {
+          if (n == 1) { this.run = game.turn(); this.last = performance.now() }
+          else { this.tick(game); if (!this.flag) { this.ms[this.run] += this.inc; this.run = game.turn(); this.last = performance.now() } }
+        } else this.tick(game);
+        if (game.game_over()) this.run = null;
+        this.moves = n;
+      }
+      static lacksMaterial(game, c) {
+        const ps = game.board().flat().filter(p => p && p.color == c && p.type != 'k');
+        return ps.length == 0 || (ps.length == 1 && 'nb'.includes(ps[0].type));
+      }
+      static format(ms) { const s = Math.max(0, ms) / 1000; return s < 20 ? s.toFixed(1) : Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0') }
+    }
+
+    /** Заголовки и экспорт PGN (копирование и сохранение). */
+    class PgnRecorder {
+      constructor() { this.downloads = null }
+      start(game, human, level, timeControl) {
+        const d = new Date(), p = n => String(n).padStart(2, '0'), C = 'Computer (' + level + ')';
+        game.header('Event', 'Casual game', 'Site', 'Claude artifact', 'Date', d.getFullYear() + '.' + p(d.getMonth() + 1) + '.' + p(d.getDate()),
+          'Round', '-', 'TimeControl', timeControl, 'White', human == 'b' ? C : human ? 'Player' : 'Player 1', 'Black', human == 'w' ? C : human ? 'Player' : 'Player 2', 'Result', '*');
+      }
+      text(game, flag) {
+        game.header('Result', flag ? (flag == 'd' ? '1/2-1/2' : flag == 'w' ? '0-1' : '1-0') : game.in_checkmate() ? (game.turn() == 'w' ? '0-1' : '1-0') : game.game_over() ? '1/2-1/2' : '*');
+        return game.pgn({ max_width: 80, newline_char: '\n' });
+      }
+      bind(getText) {
+        $('cp').onclick = async () => {
+          const t = getText(), pg = $('pg');
+          try { await navigator.clipboard.writeText(t); $('cp').textContent = 'Скопировано'; setTimeout(() => $('cp').textContent = 'Копировать PGN', 1500) }
+          catch (e) { pg.value = t; pg.hidden = false; pg.select() }
+        };
+        $('dl').onclick = async () => {
+          try { await this.downloads.save({ filename: 'partiya-' + new Date().toISOString().slice(0, 10) + '.txt', data: getText() }) } catch (e) { }
+        };
+        if (window.claude && claude.use) claude.use('downloads').then(d => { this.downloads = d; if (d) $('dl').hidden = false }).catch(() => { });
+      }
+    }
+
+    /** Предварительный ход: хранение и проверка «геометрии» хода. */
+    class Premove {
+      constructor() { this.move = null }
+      set(from, to) { this.move = { from, to } }
+      clear() { this.move = null }
+      take() { const m = this.move; this.move = null; return m }
+      static reachable(game, f, t) {
+        const p = game.get(f), q = game.get(t); if (!p || f == t || (q && q.color == p.color)) return false;
+        const dx = t.charCodeAt(0) - f.charCodeAt(0), dy = t.charCodeAt(1) - f.charCodeAt(1), ax = Math.abs(dx), ay = Math.abs(dy);
+        switch (p.type) {
+          case 'n': return ax * ay == 2;
+          case 'b': return ax == ay;
+          case 'r': return !dx || !dy;
+          case 'q': return ax == ay || !dx || !dy;
+          case 'k': return (ax < 2 && ay < 2) || (!dy && ax == 2 && f[1] == (p.color == 'w' ? '1' : '8'));
+          default: { const d = p.color == 'w' ? 1 : -1; return (!dx && (dy == d || (dy == 2 * d && f[1] == (p.color == 'w' ? '2' : '7')))) || (ax == 1 && dy == d) }
+        }
+      }
+    }
+
+    /** Всё, что рисуется на странице: доска, фигуры, часы, список ходов, статус, окно превращения. */
+    class BoardView {
+      constructor(onSquare) { this.board = $('b'); this.promo = $('promo'); this.onSquare = onSquare; this.ghost = null }
+      static kingSquare(game) {
+        const b = game.board(), c = game.turn();
+        for (let r = 0; r < 8; r++)for (let f = 0; f < 8; f++) { const p = b[r][f]; if (p && p.type == 'k' && p.color == c) return 'abcdefgh'[f] + (8 - r) }
+      }
+      draw({ game, sel, pre, flip, preMode, drag }) {
+        const lg = sel ? game.moves({ square: sel, verbose: true }) : [], ck = game.in_check(), ks = ck ? BoardView.kingSquare(game) : null;
+        const h = game.history({ verbose: true }), L = h[h.length - 1];
+        this.board.innerHTML = '';
+        for (let i = 0; i < 8; i++)for (let j = 0; j < 8; j++) {
+          const r = flip ? 7 - i : i, c = flip ? 7 - j : j, sq = 'abcdefgh'[c] + (8 - r), p = game.get(sq), d = document.createElement('div');
+          d.className = 'sq ' + ((r + c) % 2 ? 'd' : 'l'); d.dataset.sq = sq;
+          if (L && (L.from == sq || L.to == sq)) d.classList.add('last');
+          if (sel == sq) d.classList.add('sel');
+          if (ks == sq) d.classList.add('chk');
+          const t = lg.find(m => m.to == sq);
+          if (t) d.classList.add(t.captured ? 'cap' : 'hint');
+          else if (preMode && sel && Premove.reachable(game, sel, sq)) d.classList.add(p ? 'cap' : 'hint');
+          if (pre && (pre.from == sq || pre.to == sq)) d.classList.add('pre');
+          if (p) { const s = document.createElement('span'); s.className = 'p ' + p.color; s.textContent = GLYPH[p.type]; if (drag == sq) s.style.opacity = '.3'; d.appendChild(s) }
+          if (j == 0) d.appendChild(this.label('r', 8 - r));
+          if (i == 7) d.appendChild(this.label('f', 'abcdefgh'[c]));
+          d.onclick = () => this.onSquare(sq);
+          this.board.appendChild(d);
+        }
+      }
+      label(kind, text) { const o = document.createElement('i'); o.className = 'co ' + kind; o.textContent = text; return o }
+      drawStatus(text) { $('st').textContent = text }
+      drawMoves(hist) {
+        const el = $('mv'); el.innerHTML = '';
+        if (!hist.length) { el.textContent = 'Здесь появится запись партии'; return }
+        hist.forEach((m, i) => {
+          if (i % 2 == 0) { const n = document.createElement('b'); n.textContent = (i / 2 + 1) + '.'; el.appendChild(n) }
+          const s = document.createElement('span'); s.textContent = m; el.appendChild(s);
+        });
+        el.scrollTop = el.scrollHeight;
+      }
+      drawClocks(clock, flip) {
+        const top = $('ct'), bot = $('cb'); top.hidden = bot.hidden = !clock.on; if (!clock.on) return;
+        const b = flip ? 'b' : 'w', t = b == 'w' ? 'b' : 'w';
+        [[top, t], [bot, b]].forEach(([el, c]) => {
+          const act = clock.run == c && !clock.flag, ms = clock.remaining(c);
+          el.children[0].textContent = c == 'w' ? 'Белые' : 'Чёрные'; el.children[1].textContent = ChessClock.format(ms);
+          el.classList.toggle('act', act); el.classList.toggle('low', ms < 10000);
+        });
+      }
+      showPromo(onPick) {
+        this.promo.innerHTML = ''; this.promo.style.display = 'flex';
+        [['q', 'Ферзь'], ['r', 'Ладья'], ['b', 'Слон'], ['n', 'Конь']].forEach(([t, name]) => {
+          const b = document.createElement('button'); b.textContent = GLYPH[t]; b.title = name; b.onclick = () => onPick(t); this.promo.appendChild(b);
+        });
+      }
+      hidePromo() { this.promo.style.display = 'none' }
+      startGhost(sq) {
+        const src = this.board.querySelector('.sq[data-sq="' + sq + '"] .p'); if (!src) return false;
+        const g = document.createElement('span'); g.className = src.className + ' ghost'; g.textContent = src.textContent;
+        g.style.fontSize = getComputedStyle(src).fontSize; document.body.appendChild(g); this.ghost = g; return true;
+      }
+      moveGhost(x, y) { if (this.ghost) { this.ghost.style.left = x + 'px'; this.ghost.style.top = y + 'px' } }
+      endGhost() { if (this.ghost) this.ghost.remove(); this.ghost = null }
+      squareAt(x, y) { const t = document.elementFromPoint(x, y), q = t && t.closest('.sq'); return q ? q.dataset.sq : null }
+    }
+
+    /** Ввод: клики, перетаскивание (мышь и палец), правый клик отменяет предход. */
+    class InputController {
+      constructor(app, view) {
+        this.app = app; this.view = view; this.drag = null; this.blockUntil = 0;
+        view.board.addEventListener('pointerdown', e => this.down(e));
+        addEventListener('pointermove', e => this.move(e));
+        addEventListener('pointerup', e => this.up(e, false));
+        addEventListener('pointercancel', e => this.up(e, true));
+        view.board.addEventListener('contextmenu', e => { e.preventDefault(); app.cancelPremove() });
+      }
+      get dragFrom() { return this.drag && this.drag.on ? this.drag.from : null }
+      click(sq) { if (performance.now() >= this.blockUntil) this.app.onSquare(sq) }
+      down(e) {
+        if (e.button > 0) return;
+        const q = e.target.closest('.sq'); if (!q || !this.app.canGrab(q.dataset.sq)) return;
+        this.drag = { from: q.dataset.sq, x: e.clientX, y: e.clientY, on: false, id: e.pointerId };
+      }
+      move(e) {
+        const d = this.drag; if (!d || e.pointerId != d.id) return;
+        if (!d.on) {
+          if (Math.hypot(e.clientX - d.x, e.clientY - d.y) < 6) return;
+          if (!this.view.startGhost(d.from)) { this.drag = null; return }
+          d.on = true; this.app.beginDrag(d.from);
+        }
+        this.view.moveGhost(e.clientX, e.clientY);
+      }
+      up(e, cancel) {
+        const d = this.drag; if (!d || e.pointerId != d.id) return;
+        this.drag = null; if (!d.on) return;
+        this.view.endGhost(); this.blockUntil = performance.now() + 400;
+        this.app.drop(d.from, cancel ? null : this.view.squareAt(e.clientX, e.clientY));
+      }
+    }
+
+    /** Контроллер партии: связывает правила (chess.js), игрока, компьютер, часы, PGN и интерфейс. */
+    class ChessApp {
+      constructor() {
+        this.token = 0; this.busy = false; this.pend = null; this.sel = null; this.flip = false;
+        this.computer = new ComputerPlayer(new EngineClient(), new MinimaxEngine());
+        this.engine = this.computer.client;
+        this.clock = new ChessClock(); this.premove = new Premove(); this.pgn = new PgnRecorder();
+        this.view = new BoardView(sq => this.input.click(sq)); this.input = new InputController(this, this.view);
+        this.pgn.bind(() => this.pgn.text(this.game, this.clock.flag));
+        $('nw').onclick = () => this.newGame();
+        $('un').onclick = () => this.undo();
+        $('fl').onclick = () => { this.flip = !this.flip; this.render() };
+        $('sd').onchange = () => { this.flip = this.human == 'b'; this.newGame() };
+        $('tc').onchange = () => this.newGame();
+        this.newGame();
+        setInterval(() => this.tick(), 100);
+      }
+      get human() { const v = $('sd').value; return v == '2' ? null : v }
+      get level() { return +$('lv').value }
+      get over() { return this.game.game_over() || !!this.clock.flag }
+      get premoveMode() { const h = this.human; return !!h && this.game.turn() != h && !this.over && !this.pend }
+
+      newGame() {
+        this.token++; if (this.busy) this.engine.reset();
+        this.game = new Chess(); this.clock.reset($('tc').value); $('un').disabled = this.clock.on;
+        this.pgn.start(this.game, this.human, LEVEL_NAMES[this.level], this.clock.label);
+        this.sel = null; this.pend = null; this.busy = false; this.premove.clear(); this.view.hidePromo();
+        this.render(); this.nextTurn();
+      }
+      undo() {
+        if (this.busy || this.pend || !this.game.history().length) return;
+        this.token++; this.premove.clear(); const h = this.human;
+        do { this.game.undo() } while (h && this.game.turn() != h && this.game.history().length);
+        this.sel = null; this.render(); this.nextTurn();
+      }
+      tick() {
+        if (this.clock.tick(this.game)) { this.token++; this.busy = false; this.render() }
+        else this.view.drawClocks(this.clock, this.flip);
+      }
+
+      statusText() {
+        const g = this.game, f = this.clock.flag; let m;
+        if (f) m = f == 'd' ? 'Время вышло — ничья (у соперника недостаточно материала)' : 'Время вышло! Победили ' + (f == 'w' ? 'чёрные' : 'белые');
+        else if (g.in_checkmate()) m = 'Мат! Победили ' + (g.turn() == 'w' ? 'чёрные' : 'белые');
+        else if (g.in_stalemate()) m = 'Пат — ничья';
+        else if (g.in_threefold_repetition()) m = 'Ничья: троекратное повторение';
+        else if (g.insufficient_material()) m = 'Ничья: недостаточно материала';
+        else if (g.in_draw()) m = 'Ничья по правилу 50 ходов';
+        else if (this.busy) m = 'Компьютер думает…';
+        else m = (g.turn() == 'w' ? 'Ход белых' : 'Ход чёрных') + (g.in_check() ? ' — шах!' : '');
+        const p = this.premove.move;
+        return m + (p ? ' · предход ' + p.from + '–' + p.to : '');
+      }
+      render() {
+        this.clock.sync(this.game);
+        if (this.over) this.premove.clear();
+        this.view.draw({ game: this.game, sel: this.sel, pre: this.premove.move, flip: this.flip, preMode: this.premoveMode, drag: this.input.dragFrom });
+        this.view.drawStatus(this.statusText());
+        this.view.drawMoves(this.game.history());
+        this.view.drawClocks(this.clock, this.flip);
+      }
+
+      /* ---- ввод игрока ---- */
+      canGrab(sq) {
+        if (this.pend || this.over) return false;
+        const p = this.game.get(sq), h = this.human; if (!p) return false;
+        return this.premoveMode ? p.color == h : !this.busy && p.color == this.game.turn() && (!h || this.game.turn() == h);
+      }
+      onSquare(sq) {
+        if (this.pend || this.over) return;
+        if (this.premoveMode) return this.premoveClick(sq);
+        if (this.busy) return;
+        const h = this.human; if (h && this.game.turn() != h) return;
+        const mv = this.sel ? this.game.moves({ square: this.sel, verbose: true }).filter(m => m.to == sq) : [];
+        if (mv.length) return this.tryMove(this.sel, sq, mv);
+        const p = this.game.get(sq);
+        this.sel = p && p.color == this.game.turn() && this.sel != sq ? sq : null;
+        this.render();
+      }
+      beginDrag(from) { this.sel = from; this.render() }
+      drop(from, to) {
+        if (to && this.premoveMode) {
+          if (Premove.reachable(this.game, from, to)) { this.premove.set(from, to); this.sel = null }
+          this.render(); return;
+        }
+        if (to && to != from) {
+          const mv = this.game.moves({ square: from, verbose: true }).filter(m => m.to == to);
+          if (mv.length) return this.tryMove(from, to, mv);
+        }
+        this.render();
+      }
+      tryMove(from, to, candidates) {
+        if (candidates[0].promotion) { this.pend = { from, to }; this.render(); this.view.showPromo(t => this.play(from, to, t)); return }
+        this.play(from, to);
+      }
+      play(from, to, promotion) {
+        this.game.move({ from, to, promotion }); this.sel = null; this.pend = null; this.view.hidePromo();
+        this.render(); this.nextTurn();
+      }
+
+      /* ---- предход ---- */
+      premoveClick(sq) {
+        const p = this.game.get(sq);
+        if (this.sel && Premove.reachable(this.game, this.sel, sq)) { this.premove.set(this.sel, sq); this.sel = null }
+        else if (p && p.color == this.human && this.sel != sq) this.sel = sq;
+        else { this.sel = null; this.premove.clear() }
+        this.render();
+      }
+      cancelPremove() { this.premove.clear(); this.sel = null; this.render() }
+      firePremove() {
+        const p = this.premove.take(); if (!p) return;
+        if (this.over || this.game.turn() != this.human) { this.render(); return }
+        const mv = this.game.moves({ square: p.from, verbose: true }).filter(m => m.to == p.to);
+        if (mv.length) this.play(p.from, p.to, mv[0].promotion ? 'q' : undefined); else this.render();
+      }
+
+      /* ---- ход компьютера ---- */
+      nextTurn() { const h = this.human; if (h && !this.over && this.game.turn() != h) this.computerTurn() }
+      timeLimit() {
+        if (!this.clock.on) return 1e9;
+        const t = this.clock.ms[this.human == 'w' ? 'b' : 'w'];
+        return Math.max(80, Math.min(t / 25 + this.clock.inc * .7, t * .4));
+      }
+      async computerTurn() {
+        this.busy = true; this.render();
+        const tok = this.token, stale = () => tok != this.token;
+        await new Promise(r => setTimeout(r, 40)); if (stale()) return;
+        const mv = await this.computer.chooseMove(this.game, this.level, this.timeLimit(), stale);
+        if (stale()) return;
+        if (mv && !this.over) this.game.move(mv);
+        this.busy = false; this.sel = null; this.render(); this.firePremove();
+      }
+    }
+
+    if (typeof Chess == 'undefined') $('st').textContent = 'Не удалось загрузить библиотеку chess.js. Проверьте соединение.';
+    else new ChessApp();
+  </script>
+</body>
+
+</html>
